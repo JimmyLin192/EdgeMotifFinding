@@ -43,17 +43,69 @@ void parse_cmd_line (int argn, char** argv) {
     trainFname = argv[i];
 }
 
-// void proximal () {
-//
-// }
+bool double_dec_comp (double firstElem, double secondElem) {
+	// sort pairs by second element with *decreasing order*
+	return firstElem > secondElem;
+}
 
-
+void proximal (Tensor* wbar, double lambda) {
+    vector<double> alpha_vec;
+    int num_alpha_elem = 0;
+    int num_elem = 0;
+    int T1 = wbar->size(); 
+    // 1. first scan: check active entry
+    for (int n = 0; n < T1; n ++) {
+        int T2 = (*wbar)[n].size();
+        for (int i = 0; i < T2; i ++) {
+            int T3 = (*wbar)[n][i].size();
+            num_elem += T3;
+            for (int j = 0; j < T3; j ++) {
+                if ((*wbar)[n][i][j] > 0.0) {
+                    alpha_vec.push_back ((*wbar)[n][i][j]);
+                    ++ num_alpha_elem;
+                }
+            }
+        }
+    }
+    if (num_alpha_elem == 0) return;
+    // 2. sorting
+    std::sort (alpha_vec[j].begin(), alpha_vec[j].end(), double_dec_comp);
+    // 3. find mstar
+    double max_term = -1e50;
+    double separator = 0.0;
+    int mstar = 0; // number of elements support the sky
+    double new_term, sum_alpha = 0.0;
+    for (int i = 0; i < num_alpha_elem; i ++) {
+        sum_alpha += alpha_vec[i];
+        new_term = (sum_alpha - lambda) / (i + 1.0);
+        if ( new_term > max_term ) {
+            separator[j] = alpha_vec[i];
+            max_term[j] = new_term;
+            mstar = i;
+        }
+    }
+    if (max_term[j] < 0) max_term = (sum_alpha - lambda) / num_elem;
+    // 4. second scan: assign closed-form solution to wbar
+    for (int n = 0; n < T1; n ++) {
+        int T2 = (*wbar)[n].size();
+        for (int i = 0; i < T2; i ++) {
+            int T3 = (*wbar)[n][i].size();
+            for (int j = 0; j < T3; j ++) {
+                if ( max_term < 0 ) (*wbar)[n][i][j] = 0.0;
+                if ( abs((*wbar)[n][i][j]) >= separator ) 
+                    (*wbar)[n][i][j] = max_term;
+                else 
+                    (*wbar)[n][i][j] = max((*wbar)[n][i][j], 0.0);
+            }
+        }
+    }
+}
 
 void reach_agreement (Tensor4D& W1, Tensor4D& W2, Tensor4D& Y, double rho, SequenceSet& allSeqs, vector<int>& lenSeqs) {
     int numAtoms = W1.size();
     for (auto it=Y.begin(); it!=Y.end(); it++) {
-        string atom = it.first;
-        Tensor* Yt  = it.second;
+        string atom = it->first;
+        Tensor* Yt  = it->second;
         Tensor* W1t = (W1.find(atom) != NULL)? W1[atom] : NULL;
         Tensor* W2t = (W2.find(atom) != NULL)? W2[atom] : NULL;
         // if W2 has no such atom, create one with all zeros
@@ -72,7 +124,7 @@ void reach_agreement (Tensor4D& W1, Tensor4D& W2, Tensor4D& Y, double rho, Seque
             // W2[atom] = W1[atom] - Y[atom] / rho
             tensor_ratio_add (W2t, W1t, -1.0/rho, Yt);
         }
-        // proximal method
+        // proximal method to find close-form solution
         proximal (W2t);
     }
 }
