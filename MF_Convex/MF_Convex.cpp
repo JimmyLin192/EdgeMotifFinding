@@ -101,7 +101,7 @@ void proximal (Tensor* wbar, double lambda) {
     }
 }
 
-void reach_agreement (Tensor4D& W1, Tensor4D& W2, Tensor4D& Y, double rho, SequenceSet& allSeqs, vector<int>& lenSeqs) {
+void reach_agreement (Tensor4D& W1, Tensor4D& W2, Tensor4D& Y, double rho, SequenceSet& allSeqs, vector<int>& lenSeqs, double lambda) {
     int numAtoms = W1.size();
     for (auto it=Y.begin(); it!=Y.end(); it++) {
         string atom = it->first;
@@ -125,7 +125,7 @@ void reach_agreement (Tensor4D& W1, Tensor4D& W2, Tensor4D& Y, double rho, Seque
             tensor_ratio_add (W2t, W1t, -1.0/rho, Yt);
         }
         // proximal method to find close-form solution
-        proximal (W2t);
+        proximal (W2t, lambda);
     }
 }
 
@@ -139,7 +139,7 @@ Tensor4D CVX_ADMM_MF (SequenceSet& allSeqs, vector<int>& lenSeqs) {
 
     // 2. ADMM iteration
     int iter = 0;
-    double rho = RHO;
+    double rho = RHO, lambda = LAMBDA;
     double prev_CoZ = MAX_DOUBLE;
     while (iter < MAX_ADMM_ITER) {
         // 2a. Subprogram: FrankWolf Algorithm
@@ -150,7 +150,7 @@ Tensor4D CVX_ADMM_MF (SequenceSet& allSeqs, vector<int>& lenSeqs) {
         reach_alignment (W_1[n], W_2[n], Y[n], C[n], rho, allSeqs[n]);
 
         // 2b. Subprogram: 
-        reach_agreement (W_1, W_2, Y, rho, allSeqs, lenSeqs);
+        reach_agreement (W_1, W_2, Y, rho, allSeqs, lenSeqs, lambda);
 
         // 2d. update Y: Y += mu * (W_1 - W_2)
         // TODO: identity check
