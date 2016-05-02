@@ -92,8 +92,8 @@ typedef vector<Trace > Plane; // 2-d Cell Plane, for viterbi
 typedef vector<Plane > Cube;  // 3-d Cell Cube
 
 typedef vector<vector<double> > Matrix; // 2-d double matrix
-typedef vector<Matrix > Tensor;  // 3-d double tensor
-typedef vector<Tensor > Tensor4D; // 4-d double Tensor
+typedef vector<Matrix> Tensor;  // 3-d double tensor
+typedef map<string, *Tensor> Tensor4D; // 4-d double Tensor
 /*}}}*/
 
 // C is the tensor specifying the penalties 
@@ -231,4 +231,38 @@ void parse_seqs_file (SequenceSet& allSeqs, int& numSeq, char* fname) {
         ++ numSeq;
     }
     seq_file.close();
+}
+
+void tensor_scalar_mult (Tensor* sink, double ratio, Tensor* source) {
+    for (int i = 0; i < source->size(); i ++) { // num_seqs
+        assert (sink->size() == source->size() && "sink == source->size() fails.");
+        for (int j = 0; j < (*source)[i].size(); j ++) { // num_characters
+            assert ((*source)[i].size() == (*sink)[i].size() && 
+                    "(*source)[i].size() == (*sink)[i].size() fails.");
+            for (int k = 0; k < (*source)[i][j].size(); k ++) {
+                assert ((*source)[i][j].size() == (*sink)[i][j].size() && 
+                        "(*source)[i][j].size() == (*sink)[i][j].size() fails.");
+                (*sink)[i][j][k] = ratio * (*source)[i][j][k];
+            }
+        }
+    }
+}
+void tensor_ratio_add (Tensor* sink, Tensor* media, double ratio, Tensor* source) {
+    for (int i = 0; i < source->size(); i ++) { // num_seqs
+        assert (sink->size() == source->size() && "sink == source->size() fails.");
+        assert (media->size() == source->size() && "media == source->size() fails.");
+        for (int j = 0; j < (*source)[i].size(); j ++) { // num_characters
+            assert ((*source)[i].size() == (*sink)[i].size() && 
+                    "(*source)[i].size() == (*sink)[i].size() fails.");
+            assert ((*source)[i].size() == (*media)[i].size() && 
+                    "(*source)[i].size() == (*media)[i].size() fails.");
+            for (int k = 0; k < (*source)[i][j].size(); k ++) {
+                assert ((*source)[i][j].size() == (*sink)[i][j].size() && 
+                        "(*source)[i][j].size() == (*sink)[i][j].size() fails.");
+                assert ((*source)[i][j].size() == (*media)[i][j].size() && 
+                        "(*source)[i][j].size() == (*media)[i][j].size() fails.");
+                (*sink)[i][j][k] = (*media)[i][j][k] + ratio * (*source)[i][j][k];
+            }
+        }
+    }
 }
