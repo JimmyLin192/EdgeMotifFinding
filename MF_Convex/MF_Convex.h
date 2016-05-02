@@ -147,51 +147,7 @@ void set_C (Tensor5D& C, SequenceSet& allSeqs) {
 }
 
 /* Tensors auxiliary function */
-/*{{{*/
-void tensor4D_average (Tensor4D& dest, Tensor4D& src1, Tensor4D& src2) {
-    int T1 = src1.size();
-    for (int i = 0; i < T1; i ++) {
-        int T2 = src1[i].size();
-        for (int j = 0; j < T2; j ++) 
-            for (int d = 0; d < NUM_DNA_TYPE; d ++) 
-                for (int m = 0; m < NUM_MOVEMENT; m ++)
-                    dest[i][j][d][m] = 0.5*(src1[i][j][d][m] + src2[i][j][d][m]);
-    }
-}
-double tensor4D_frob_prod (Tensor4D& src1, Tensor4D& src2) {
-    double prod = 0.0;
-    int T1 = src1.size();
-    for (int i = 0; i < T1; i ++) {
-        int T2 = src1[i].size();
-        for (int j = 0; j < T2; j ++) 
-            for (int d = 0; d < NUM_DNA_TYPE; d ++) 
-                for (int m = 0; m < NUM_MOVEMENT; m ++)
-                    prod += src1[i][j][d][m] * src2[i][j][d][m];
-    }
-    return prod;
-}
-void tensor4D_lin_update (Tensor4D& dest, Tensor4D& src1, Tensor4D& src2, double ratio) {
-    int T1 = src1.size();
-    for (int i = 0; i < T1; i ++) {
-        int T2 = src1[i].size();
-        for (int j = 0; j < T2; j ++) 
-            for (int d = 0; d < NUM_DNA_TYPE; d ++) 
-                for (int m = 0; m < NUM_MOVEMENT; m ++)
-                    dest[i][j][d][m] += ratio * (src1[i][j][d][m] - src2[i][j][d][m]);
-    }
-}
-void tensor4D_copy (Tensor4D& dest, Tensor4D& src1) {
-    int N = src1.size();
-    int T1 = src1.size();
-    for (int i = 0; i < T1; i ++) {
-        int T2 = src1[i].size();
-        for (int j = 0; j < T2; j ++) 
-            for (int d = 0; d < NUM_DNA_TYPE; d ++) 
-                for (int m = 0; m < NUM_MOVEMENT; m ++)
-                    dest[i][j][d][m] = src1[i][j][d][m];
-    }
-    return ;
-}
+/*
 void tensor_dump (Tensor& W) {
     int T1 = W.size();
     for (int i = 0; i < T1; i ++) {
@@ -208,7 +164,7 @@ void tensor_dump (Tensor& W) {
                             << endl;
     }
 }
-/*}}}*/
+*/
 
 void sequence_dump (SequenceSet& allSeqs, int n) {
     char buffer [50];
