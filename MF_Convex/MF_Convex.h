@@ -22,6 +22,7 @@ double PERB_EPS = 0.0;
 bool ADMM_EARLY_STOP_TOGGLE = true;
 bool REINIT_W_ZERO_TOGGLE = true;
 
+double LAMBDA = 1.0;
 int L_MIN = 2;
 int L_MAX = 3;
 
@@ -231,6 +232,42 @@ void parse_seqs_file (SequenceSet& allSeqs, int& numSeq, char* fname) {
         ++ numSeq;
     }
     seq_file.close();
+}
+
+// sink += mu * source
+void tensor_axpy (Tensor* sink, double ratio, Tensor* source) {
+    for (int i = 0; i < source->size(); i ++) { // num_seqs
+        assert (sink->size() == source->size() && "sink == source->size() fails.");
+        for (int j = 0; j < (*source)[i].size(); j ++) { // num_characters
+            assert ((*source)[i].size() == (*sink)[i].size() && 
+                    "(*source)[i].size() == (*sink)[i].size() fails.");
+            for (int k = 0; k < (*source)[i][j].size(); k ++) {
+                assert ((*source)[i][j].size() == (*sink)[i][j].size() && 
+                        "(*source)[i][j].size() == (*sink)[i][j].size() fails.");
+                (*sink)[i][j][k] += ratio * (*source)[i][j][k];
+            }
+        }
+    }
+}
+// sink += mu * (s1 - s2)
+void tensor_axpy (Tensor* sink, double ratio, Tensor* s1, Tensor* s2) {
+    for (int i = 0; i < s1->size(); i ++) { // num_seqs
+        assert (sink->size() == s1->size() && "sink == s1->size() fails.");
+        assert (sink->size() == s2->size() && "sink == s2->size() fails.");
+        for (int j = 0; j < (*s1)[i].size(); j ++) { // num_characters
+            assert ((*s1)[i].size() == (*sink)[i].size() && 
+                    "(*s1)[i].size() == (*sink)[i].size() fails.");
+            assert ((*s2)[i].size() == (*sink)[i].size() && 
+                    "(*s2)[i].size() == (*sink)[i].size() fails.");
+            for (int k = 0; k < (*s1)[i][j].size(); k ++) {
+                assert ((*s1)[i][j].size() == (*sink)[i][j].size() && 
+                        "(*s1)[i][j].size() == (*sink)[i][j].size() fails.");
+                assert ((*s2)[i][j].size() == (*sink)[i][j].size() && 
+                        "(*s2)[i][j].size() == (*sink)[i][j].size() fails.");
+                (*sink)[i][j][k] += ratio * ( (*s1)[i][j][k] - (*s2)[i][j][k]);
+            }
+        }
+    }
 }
 
 void tensor_scalar_mult (Tensor* sink, double ratio, Tensor* source) {

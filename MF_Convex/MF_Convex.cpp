@@ -9,6 +9,7 @@ void usage () {
     cout << "./MSA_Convex (options) [seq_file]" << endl;
     cout << "seq_file should contain one or more DNA sequence. " << endl;
     cout << "Options: " << endl;
+    cout << "\t-L Set the lambda, which is the weight for || W ||_p. (default 1.0)" << endl;
     cout << "\t-l Set the minimal length of atoms. (default 2)" << endl;
     cout << "\t-u Set the maximum length of atoms. (default 3)" << endl;
     cout << "\t-m Set step size (\\mu) for updating the ADMM coordinate variables. (default 0.1)"<< endl;
@@ -29,7 +30,8 @@ void parse_cmd_line (int argn, char** argv) {
         switch(argv[i-1][1]){
             case 'e': ADMM_EARLY_STOP_TOGGLE = (atoi(argv[i])>0); break;
             case 'r': REINIT_W_ZERO_TOGGLE = (atoi(argv[i])>0); break;
-            case 'l': L_MIN = atoi(argv[i]); break;
+            case 'L': LAMBDA = atof(argv[i]); break;
+            case 'l': L_MIN = atof(argv[i]); break;
             case 'u': L_MAX = atoi(argv[i]); break;
             case 'm': MU = atof(argv[i]); break;
             case 'p': PERB_EPS = atof(argv[i]); break;
@@ -101,7 +103,8 @@ void proximal (Tensor* wbar, double lambda) {
     }
 }
 
-void reach_agreement (Tensor4D& W1, Tensor4D& W2, Tensor4D& Y, double rho, SequenceSet& allSeqs, vector<int>& lenSeqs, double lambda) {
+/* Subproblem 2: update W_2 */
+void suppress (Tensor4D& W1, Tensor4D& W2, Tensor4D& Y, double rho, vector<int>& lenSeqs, double lambda) {
     int numAtoms = W1.size();
     for (auto it=Y.begin(); it!=Y.end(); it++) {
         string atom = it->first;
@@ -129,12 +132,40 @@ void reach_agreement (Tensor4D& W1, Tensor4D& W2, Tensor4D& Y, double rho, Seque
     }
 }
 
+/* Subproblem 1: update W_1 */
+void align (W1, W2, Y, rho, allSeqs, lenSeqs) {
+
+}
+
+void coordinate (Tensor4D& Y, Tensor4D& W1, Tensor4D& W2, double mu, vector<int>& lenSeqs) {
+    for (auto it=W1.begin(); it !=W1.end(); it++) {
+        string atom = it->first;
+        Tensor* W1t = W1[atom];
+        Tensor* W2t = (W2.find(atom)!=NULL) ? W2t[atom] : NULL;
+        Tensor* Yt  = (Y.find(atom)!=NULL)  ? Yt[atom]  : NULL;
+        if (Yt == NULL) { 
+            Yt = new Tensor(lenSeqs.size(), NULL);
+            for (int seq_len : lenSeqs) {
+                Matrix tmp (seq_len, vector<double>(L_MAX, 0.0));
+                Yt->push_back(tmp);
+            }
+            Y[atom] = Yt;
+        } 
+        if (W2 == NULL) {
+            // axpy: Y += mu * W_1
+            tensor_axpy(Yt, mu, W1t);
+        } else {
+            // axpy: Y += mu * (W_1 - W_2)
+            tensor_diff_axpy(Yt, mu, W1t, W2t);
+        }
+    }
+}
+
 Tensor4D CVX_ADMM_MF (SequenceSet& allSeqs, vector<int>& lenSeqs) {
     /*{{{*/
     // 1. initialization
     int numSeq = allSeqs.size();
-    Tensor4D C, W_1, W_2, Y; 
-    // (0, Tensor(numSeq, Matrix(NUM_DNA_TYPE, vector<double>(L_MAX, 0.0))));  
+    Tensor4D W_1, W_2, Y; 
    // set_C (C, allSeqs);
 
     // 2. ADMM iteration
@@ -142,20 +173,15 @@ Tensor4D CVX_ADMM_MF (SequenceSet& allSeqs, vector<int>& lenSeqs) {
     double rho = RHO, lambda = LAMBDA;
     double prev_CoZ = MAX_DOUBLE;
     while (iter < MAX_ADMM_ITER) {
-        // 2a. Subprogram: FrankWolf Algorithm
-        // NOTE: parallelize this for to enable parallelism
-#ifdef PARRALLEL_COMPUTING
-#pragma omp parallel for
-#endif
-        reach_alignment (W_1[n], W_2[n], Y[n], C[n], rho, allSeqs[n]);
 
-        // 2b. Subprogram: 
-        reach_agreement (W_1, W_2, Y, rho, allSeqs, lenSeqs, lambda);
+        // 2a. Subprogram: FrankWolf Algorithm
+        align (W_1, W_2, Y, rho, allSeqs, lenSeqs);
+
+        // 2b. Subprogram: proximal method
+        suppress (W_1, W_2, Y, rho, lenSeqs, lambda);
 
         // 2d. update Y: Y += mu * (W_1 - W_2)
-        // TODO: identity check
-        for (int n = 0; n < numSeq; n ++)
-            tensor4D_lin_update (Y[n], W_1[n], W_2[n], mu);
+        coordinate (Y, W_1, W_2, mu, lenSeqs);
 
         // 2e. print out tracking info
         /*
