@@ -104,7 +104,7 @@ void proximal (Tensor* wbar, double lambda) {
 }
 
 /* Subproblem 2: update W_2 */
-void suppress (Tensor4D& W1, Tensor4D& W2, Tensor4D& Y, double rho, vector<int>& lenSeqs, double lambda) {
+void suppress (TensorMap& W1, TensorMap& W2, TensorMap& Y, double rho, vector<int>& lenSeqs, double lambda) {
     int numSeqs = lenSeqs.size();
     vector<string> to_remove;
     for (auto it=Y.begin(); it!=Y.end(); it++) {
@@ -141,13 +141,13 @@ void suppress (Tensor4D& W1, Tensor4D& W2, Tensor4D& Y, double rho, vector<int>&
     }
 }
 
-void viterbi(Tensor4D& W1, SequenceSet& allSeqs, vector<int>& lenSeqs) {
+void viterbi(TensorMap& W1, SequenceSet& allSeqs, vector<int>& lenSeqs) {
     // TODO:
     ;
 }
 
 /* Subproblem 1: update W_1 */
-void align (Tensor4D& W1, Tensor4D& W2, Tensor4D& Y, double rho, SequenceSet& allSeqs, vector<int>& lenSeqs) {
+void align (TensorMap& W1, TensorMap& W2, TensorMap& Y, double rho, SequenceSet& allSeqs, vector<int>& lenSeqs) {
     // frank-wolfe
     int numSeqs = lenSeqs.size();
     int fw_iter = -1;
@@ -172,11 +172,12 @@ void align (Tensor4D& W1, Tensor4D& W2, Tensor4D& Y, double rho, SequenceSet& al
         // if (fabs(gamma) < EPS_1st_FW) break;  // TODO
 
         // 3. update W1: W1 = (1-gamma) * W1 + gamma * S
+        double one_minus_gamma = 1-gamma;
         for (auto it=W1.begin(); it !=W1.end(); it++) {
             string atom = it->first;
             Tensor* W1t = W1[atom];
             // W1 += (1-gamma) * W1
-            tensor_axpy(W1t, (1-gamma), W1t);
+            tensor_axpy(W1t, one_minus_gamma, W1t);
         }
         for (auto it=S.begin(); it !=S.end(); it++) {
             string atom = it->first;
@@ -197,7 +198,7 @@ void align (Tensor4D& W1, Tensor4D& W2, Tensor4D& Y, double rho, SequenceSet& al
     }
 }
 
-void coordinate (Tensor4D& Y, Tensor4D& W1, Tensor4D& W2, double mu, vector<int>& lenSeqs) {
+void coordinate (TensorMap& Y, TensorMap& W1, TensorMap& W2, double mu, vector<int>& lenSeqs) {
     for (auto it=W1.begin(); it !=W1.end(); it++) {
         string atom = it->first;
         Tensor* W1t = W1[atom];
@@ -221,11 +222,11 @@ void coordinate (Tensor4D& Y, Tensor4D& W1, Tensor4D& W2, double mu, vector<int>
     }
 }
 
-Tensor4D CVX_ADMM_MF (SequenceSet& allSeqs, vector<int>& lenSeqs) {
+TensorMap CVX_ADMM_MF (SequenceSet& allSeqs, vector<int>& lenSeqs) {
     /*{{{*/
     // 1. initialization
-    int numSeq = allSeqs.size();
-    Tensor4D W_1, W_2, Y; 
+    int numSeqs = allSeqs.size();
+    TensorMap W_1, W_2, Y; 
    // set_C (C, allSeqs);
 
     // 2. ADMM iteration
@@ -234,10 +235,15 @@ Tensor4D CVX_ADMM_MF (SequenceSet& allSeqs, vector<int>& lenSeqs) {
     double prev_CoZ = MAX_DOUBLE;
     while (iter < MAX_ADMM_ITER) {
 
-        // 2a. Subprogram: FrankWolf Algorithm
-        align (W_1, W_2, Y, rho, allSeqs, lenSeqs);
+        // 2a. Subprogram: FrankWolf Algorithm, row separable
+        vector<MatrixMap> sub_W_1 (numSeqs); 
+        for (int n = 0; n < numSeqs; n ++) {
+            segregate(W_1, sub_W_1, n);
+            align (W_1, W_2, Y, rho, allSeqs, lenSeqs);
+        }
+        combine();
 
-        // 2b. Subprogram: proximal method
+        // 2b. Subprogram: proximal method, column separable
         suppress (W_1, W_2, Y, rho, lenSeqs, lambda);
 
         // 2d. update Y: Y += mu * (W_1 - W_2)
@@ -307,7 +313,7 @@ int main (int argn, char** argv) {
     // 3. relaxed convex program: ADMM-based algorithm
     // omp_set_num_threads(NUM_THREADS);
     time_t begin = time(NULL);
-    Tensor4D W = CVX_ADMM_MF (allSeqs, lenSeqs);
+    TensorMap W = CVX_ADMM_MF (allSeqs, lenSeqs);
     time_t end = time(NULL);
 
     cout << "Time Spent: " << end - begin << " seconds" << endl;

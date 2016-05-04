@@ -93,7 +93,8 @@ typedef vector<Plane > Cube;  // 3-d Cell Cube
 
 typedef vector<vector<double> > Matrix; // 2-d double matrix
 typedef vector<Matrix> Tensor;  // 3-d double tensor
-typedef map<string, *Tensor> Tensor4D; // 4-d double Tensor
+typedef map<string, *Matrix> MatrixMap; // 3-d double Tensor
+typedef map<string, *Tensor> TensorMap; // 4-d double Tensor
 /*}}}*/
 
 // C is the tensor specifying the penalties 
