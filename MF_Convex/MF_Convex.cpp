@@ -133,7 +133,7 @@ void suppress (Tensor4D& W1, Tensor4D& W2, Tensor4D& Y, double rho, vector<int>&
 }
 
 void viterbi(Tensor4D& W1, SequenceSet& allSeqs, vector<int>& lenSeqs) {
-    
+    // TODO:
     ;
 }
 
@@ -148,6 +148,7 @@ void align (Tensor4D& W1, Tensor4D& W2, Tensor4D& Y, double rho, SequenceSet& al
 
         // 2. Exact Line search: determine the optimal step size \gamma
         double numerator = 0.0, denominator = 0.0;
+        // TODO: 
 
         // Early Stop condition A: neglible denominator
         // if (denominator < 1e-6) break; // TODO
