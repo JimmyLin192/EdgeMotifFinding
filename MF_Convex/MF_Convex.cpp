@@ -105,7 +105,8 @@ void proximal (Tensor* wbar, double lambda) {
 
 /* Subproblem 2: update W_2 */
 void suppress (Tensor4D& W1, Tensor4D& W2, Tensor4D& Y, double rho, vector<int>& lenSeqs, double lambda) {
-    int numAtoms = W1.size();
+    int numSeqs = lenSeqs.size();
+    vector<string> to_remove;
     for (auto it=Y.begin(); it!=Y.end(); it++) {
         string atom = it->first;
         Tensor* Yt  = it->second;
@@ -113,9 +114,9 @@ void suppress (Tensor4D& W1, Tensor4D& W2, Tensor4D& Y, double rho, vector<int>&
         Tensor* W2t = (W2.find(atom) != NULL)? W2[atom] : NULL;
         // if W2 has no such atom, create one with all zeros
         if (W2t == NULL) {
-            W2t = new Tensor(lenSeqs.size(), NULL);
-            for (int seq_len : lenSeqs) {
-                Matrix tmp (seq_len, vector<double>(L_MAX, 0.0));
+            W2t = new Tensor(numSeqs, NULL);
+            for (int n = 0; n < numSeqs; n ++) {
+                Matrix tmp (lenSeqs[n], vector<double>(L_MAX, 0.0));
                 W2t->push_back(tmp);
             }
             W2[atom] = W2t;
@@ -128,7 +129,15 @@ void suppress (Tensor4D& W1, Tensor4D& W2, Tensor4D& Y, double rho, vector<int>&
             tensor_ratio_add (W2t, W1t, -1.0/rho, Yt);
         }
         // proximal method to find close-form solution
-        proximal (W2t, lambda);
+        bool all_zeros = false;
+        proximal (W2t, lambda, all_zeros);
+        if (all_zeros) to_remove.push_back(atom);        
+    }
+    int num_to_remove = to_remove.size();
+    for (int i = 0; i < num_to_remove; i ++) {
+        string atom = to_remove[i];
+        if (W2.find(atom) != W2.end()) free(W2[atom]);
+        W2.erase(atom);
     }
 }
 
@@ -140,6 +149,7 @@ void viterbi(Tensor4D& W1, SequenceSet& allSeqs, vector<int>& lenSeqs) {
 /* Subproblem 1: update W_1 */
 void align (Tensor4D& W1, Tensor4D& W2, Tensor4D& Y, double rho, SequenceSet& allSeqs, vector<int>& lenSeqs) {
     // frank-wolfe
+    int numSeqs = lenSeqs.size();
     int fw_iter = -1;
     while (fw_iter < MAX_1st_FW_ITER) {
         fw_iter ++;
@@ -174,8 +184,8 @@ void align (Tensor4D& W1, Tensor4D& W2, Tensor4D& Y, double rho, SequenceSet& al
             Tensor* St  = S [atom];
             if (W1t == NULL) {
                 W1t = new Tensor(lenSeqs.size(), NULL);
-                for (int seq_len : lenSeqs) {
-                    Matrix tmp (seq_len, vector<double>(L_MAX, 0.0));
+                for (int n = 0; n < numSeqs; n ++) {
+                    Matrix tmp (lenSeqs[n], vector<double>(L_MAX, 0.0));
                     W1t->push_back(tmp);
                 }
                 W1[atom] = W1t;
