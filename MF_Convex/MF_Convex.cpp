@@ -132,6 +132,11 @@ void suppress (Tensor4D& W1, Tensor4D& W2, Tensor4D& Y, double rho, vector<int>&
     }
 }
 
+void viterbi(Tensor4D& W1, SequenceSet& allSeqs, vector<int>& lenSeqs) {
+    
+    ;
+}
+
 /* Subproblem 1: update W_1 */
 void align (Tensor4D& W1, Tensor4D& W2, Tensor4D& Y, double rho, SequenceSet& allSeqs, vector<int>& lenSeqs) {
     // frank-wolfe
@@ -139,9 +144,13 @@ void align (Tensor4D& W1, Tensor4D& W2, Tensor4D& Y, double rho, SequenceSet& al
     while (fw_iter < MAX_1st_FW_ITER) {
         fw_iter ++;
         // 1. find alignment: brute-force search
-        
+        S = viterbi(W1, allSeqs, lenSeqs);
+
         // 2. Exact Line search: determine the optimal step size \gamma
+        double numerator = 0.0, denominator = 0.0;
+
         // Early Stop condition A: neglible denominator
+        // if (denominator < 1e-6) break; // TODO
         double gamma = numerator / denominator;
         // initially pre-set to Conv(A)
         if (fw_iter == 0) gamma = 1.0;
@@ -149,8 +158,30 @@ void align (Tensor4D& W1, Tensor4D& W2, Tensor4D& Y, double rho, SequenceSet& al
         gamma = max(gamma, 0.0);
         gamma = min(gamma, 1.0);
         // Early Stop condition B: neglible gamma
+        // if (fabs(gamma) < EPS_1st_FW) break;  // TODO
 
-        // 3. update W1
+        // 3. update W1: W1 = (1-gamma) * W1 + gamma * S
+        for (auto it=W1.begin(); it !=W1.end(); it++) {
+            string atom = it->first;
+            Tensor* W1t = W1[atom];
+            // W1 += (1-gamma) * W1
+            tensor_axpy(W1t, (1-gamma), W1t);
+        }
+        for (auto it=S.begin(); it !=S.end(); it++) {
+            string atom = it->first;
+            Tensor* W1t = W1[atom];
+            Tensor* St  = S [atom];
+            if (W1t == NULL) {
+                W1t = new Tensor(lenSeqs.size(), NULL);
+                for (int seq_len : lenSeqs) {
+                    Matrix tmp (seq_len, vector<double>(L_MAX, 0.0));
+                    W1t->push_back(tmp);
+                }
+                W1[atom] = W1t;
+            }
+            // W1 += gamma * S
+            tensor_axpy(W1t, gamma, St);
+        }
 
     }
 }
