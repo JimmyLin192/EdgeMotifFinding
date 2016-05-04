@@ -133,8 +133,26 @@ void suppress (Tensor4D& W1, Tensor4D& W2, Tensor4D& Y, double rho, vector<int>&
 }
 
 /* Subproblem 1: update W_1 */
-void align (W1, W2, Y, rho, allSeqs, lenSeqs) {
+void align (Tensor4D& W1, Tensor4D& W2, Tensor4D& Y, double rho, SequenceSet& allSeqs, vector<int>& lenSeqs) {
+    // frank-wolfe
+    int fw_iter = -1;
+    while (fw_iter < MAX_1st_FW_ITER) {
+        fw_iter ++;
+        // 1. find alignment: brute-force search
+        
+        // 2. Exact Line search: determine the optimal step size \gamma
+        // Early Stop condition A: neglible denominator
+        double gamma = numerator / denominator;
+        // initially pre-set to Conv(A)
+        if (fw_iter == 0) gamma = 1.0;
+        // Gamma should be bounded by [0,1]
+        gamma = max(gamma, 0.0);
+        gamma = min(gamma, 1.0);
+        // Early Stop condition B: neglible gamma
 
+        // 3. update W1
+
+    }
 }
 
 void coordinate (Tensor4D& Y, Tensor4D& W1, Tensor4D& W2, double mu, vector<int>& lenSeqs) {

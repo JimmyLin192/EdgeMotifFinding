@@ -35,7 +35,6 @@ const double MAX_INT = numeric_limits<int>::max();
 
 /* Algorithmic Setting */
 const int MAX_1st_FW_ITER = 200;
-const int MAX_2nd_FW_ITER = 300;
 const int MIN_ADMM_ITER = 10;
 const int MAX_ADMM_ITER = 10000;
 const double FW1_GFW_EPS = 1e-6;
