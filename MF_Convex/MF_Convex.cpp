@@ -69,7 +69,10 @@ void proximal (Tensor* wbar, double lambda, bool& all_zeros) {
             }
         }
     }
-    if (num_alpha_elem == 0) return;
+    if (num_alpha_elem == 0) {
+        all_zeros = true;
+        return;
+    }
     // 2. sorting
     std::sort (alpha_vec.begin(), alpha_vec.end(), double_dec_comp);
     // 3. find mstar
@@ -87,13 +90,16 @@ void proximal (Tensor* wbar, double lambda, bool& all_zeros) {
         }
     }
     if (max_term < 0) max_term = (sum_alpha - lambda) / num_elem;
+    if (max_term < 0) {
+        all_zeros = true;
+        return;
+    }
     // 4. second scan: assign closed-form solution to wbar
     for (int n = 0; n < T1; n ++) {
         int T2 = (*wbar)[n].size();
         for (int i = 0; i < T2; i ++) {
             int T3 = (*wbar)[n][i].size();
             for (int j = 0; j < T3; j ++) {
-                if ( max_term < 0 ) (*wbar)[n][i][j] = 0.0;
                 if ( abs((*wbar)[n][i][j]) >= separator ) 
                     (*wbar)[n][i][j] = max_term;
                 else 
