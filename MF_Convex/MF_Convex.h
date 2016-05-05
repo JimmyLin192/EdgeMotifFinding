@@ -115,6 +115,15 @@ void mat_copy (Matrix& sink, Matrix& source) {
         }
     }
 }
+void matrix_set_zero (Matrix& matrix) {
+    for (int i = 0; i < matrix.size(); i ++) 
+        for (int j = 0; j < matrix[i].size(); j ++) 
+            matrix[i][j] = 0.0;
+}
+void tensor_set_zero (Tensor& tensor) {
+    for (int i = 0; i < tensor.size(); i ++) 
+        mat_set_zero (tensor[i]);
+}
 void TensorMap2MatrixMap(int nid, MatrixMap& mmap, TensorMap& tmap) {
     for (auto it=tmap.begin(); it!=tmap.end(); it++) {
         string atom = it->first;
@@ -126,7 +135,11 @@ void TensorMap2MatrixMap(int nid, MatrixMap& mmap, TensorMap& tmap) {
 }
 void MatrixMap2TensorMap(TensorMap& tmap, vector<MatrixMap>& mmaps, vector<int>& lenSeqs) {
     // clear zero for tmap
-    
+    for (auto it=tmap.begin(); it!=tmap.end(); it++) {
+        string atom = it->first;
+        Tensor* tensor = it->second;
+        tensor_set_zero (*tensor);
+    }
     // copy info from mmaps to tmap
     for (int n = 0; n < mmaps.size(); n ++) {
         for (auto it=mmap[n].begin(); it!=mmap[n].end(); it++) {
