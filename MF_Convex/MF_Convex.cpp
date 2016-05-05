@@ -147,23 +147,23 @@ void suppress (TensorMap& W1, TensorMap& W2, TensorMap& Y, double rho, vector<in
     }
 }
 
-void viterbi(MatrixMap& S, MatrixMap& W1, Sequence& seq, int lenSeq) {
+void viterbi(int nid, MatrixMap& S, MatrixMap& W1_sub, Sequence& seq, int lenSeq, TensorMap& W2, TensorMap& Y, double rho) {
     // TODO:
     ;
 }
 
 /* Subproblem 1: update W_1 */
-void align (int nid, vector<MatrixMap>& S, TensorMap& W1, TensorMap& W2, TensorMap& Y, double rho, SequenceSet& allSeqs, vector<int>& lenSeqs) {
+void align (int nid, vector<MatrixMap>& sub_W_1, TensorMap& W1, TensorMap& W2, TensorMap& Y, double rho, SequenceSet& allSeqs, vector<int>& lenSeqs) {
     // frank-wolfe
     int numSeqs = lenSeqs.size();
     int fw_iter = -1;
     // initilize W1_sub
-    // TODO: 
-
+    TensorMap2MatrixMap(nid, W1_sub, W1);
     while (fw_iter < MAX_1st_FW_ITER) {
         fw_iter ++;
         // 1. find alignment: brute-force search
-        viterbi(S[nid], W1_sub, allSeqs[nid], lenSeqs[nid]);
+        MatrixMap S;
+        viterbi(nid, S, W1_sub, allSeqs[nid], lenSeqs[nid], W2, Y, rho);
 
         // 2. Exact Line search: determine the optimal step size \gamma
         double numerator = 0.0, denominator = 0.0;
@@ -205,6 +205,7 @@ void align (int nid, vector<MatrixMap>& S, TensorMap& W1, TensorMap& W2, TensorM
         }
 
     }
+    sub_W_1[nid] = W1_sub;
 }
 
 void coordinate (TensorMap& Y, TensorMap& W1, TensorMap& W2, double rho, vector<int>& lenSeqs) {
@@ -247,9 +248,9 @@ TensorMap CVX_ADMM_MF (SequenceSet& allSeqs, vector<int>& lenSeqs) {
         // 2a. Subprogram: FrankWolf Algorithm, row separable
         vector<MatrixMap> sub_W_1 (numSeqs); 
         for (int n = 0; n < numSeqs; n ++) {
-            align (n, W_1, W_2, Y, rho, allSeqs, lenSeqs);
+            align (n, sub_W_1[n], W_1, W_2, Y, rho, allSeqs, lenSeqs);
         }
-        // combine();
+        MatrixMap2TensorMap(W_1, sub_W_1, lenSeqs);
 
         // 2b. Subprogram: proximal method, column separable
         suppress (W_1, W_2, Y, rho, lenSeqs, lambda);

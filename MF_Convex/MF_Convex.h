@@ -96,24 +96,54 @@ typedef map<string, Matrix*> MatrixMap; // 3-d double Tensor
 typedef map<string, Tensor*> TensorMap; // 4-d double Tensor
 
 /* Tensors auxiliary function */
-/*
-void tensor_dump (Tensor& W) {
-    int T1 = W.size();
-    for (int i = 0; i < T1; i ++) {
-        int T2 = W[i].size();
-        for (int j = 0; j < T2; j ++) 
-            int T3 = W[i][0].size();
-            for (int d = 0; d < T3; d ++) 
-                    if (W[i][j][d] > 0.0)
-                        cout << "(i="  << i
-                            << ", j=" << j
-                            << ", d=" << d
-                            << ", m=" << m
-                            << "): " << W[i][j][d][m]
-                            << endl;
+bool all_zeros (Matrix& source) {
+    int dim_x = source.size();
+    for (int i = 0; i < dim_x; i ++) {
+        int dim_y = source[i].size();
+        for (int j = 0; j < dim_y; j ++) {
+            if (abs(source[i][j]) > 1e-5) return false;
+        }
+    }
+    return true;
+}
+void mat_copy (Matrix& sink, Matrix& source) {
+    assert (source.size() == sink.size());
+    for (int i = 0; i < source.size(); i ++) {
+        assert (source[i].size() == sink[i].size());
+        for (int j = 0; j < source[i].size(); j ++) {
+            sink[i][j] = source[i][j];
+        }
     }
 }
-*/
+void TensorMap2MatrixMap(int nid, MatrixMap& mmap, TensorMap& tmap) {
+    for (auto it=tmap.begin(); it!=tmap.end(); it++) {
+        string atom = it->first;
+        Tensor* tensor = it->second;
+        if (!all_zeros((*tensor)[n])) {
+            mmap[atom] = &((*tensor)[n]);
+        }
+    }
+}
+void MatrixMap2TensorMap(TensorMap& tmap, vector<MatrixMap>& mmaps, vector<int>& lenSeqs) {
+    // clear zero for tmap
+    
+    // copy info from mmaps to tmap
+    for (int n = 0; n < mmaps.size(); n ++) {
+        for (auto it=mmap[n].begin(); it!=mmap[n].end(); it++) {
+            string atom = it->first;
+            Matrix* mat = it->second;
+            if (tmap.find(atom) == W1.end()) {
+                Tensor* tmap_t = new Tensor();
+                for (int i = 0; i < numSeqs; i ++) {
+                    Matrix tmp (lenSeqs[i], vector<double>(L_MAX, 0.0));
+                    tmap_t->push_back(tmp);
+                }
+                tmap[atom] = tmap_t;
+            }
+            mat_copy ((*(tmap[atom]))[n], *mat);
+        }
+    }
+}
 void dump (Matrix& source, string name) {
     int dim_x = source.size();
     cout << "===> dumping Matrix " <<  name  << ":" << endl;
@@ -150,7 +180,6 @@ void dump (TensorMap& source, string name) {
         dump(*(it->second), it->first);
     }
 }
-
 void sequence_dump (SequenceSet& allSeqs, int n) {
     char buffer [50];
     sprintf (buffer, "Seq%5d", n);
