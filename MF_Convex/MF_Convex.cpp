@@ -170,9 +170,11 @@ void align (int nid, vector<MatrixMap>& sub_W_1, TensorMap& W1, TensorMap& W2, T
 
         // 2. Exact Line search: determine the optimal step size \gamma
         double numerator = 0.0, denominator = 0.0;
-        // TODO: numerator = < (2-\rho)(w1-w2), grad > 
+        // numerator = < (2-\rho)(w1-w2), grad > 
         // denominator = 2 || grad ||^2
-        ;
+        mmap_diff_axpy (tmp, 2.0-rho, W1_sub, W2_sub);
+        numerator = mmap_dot_product (tmp, grad);
+        denominator = 2.0 * mmap_square (grad);
         // Early Stop condition A: neglible denominator
         // if (denominator < 1e-6) break; // TODO
         double gamma = 0.5 - numerator / denominator;
