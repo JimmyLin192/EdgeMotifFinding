@@ -141,6 +141,7 @@ void MatrixMap2TensorMap(TensorMap& tmap, vector<MatrixMap>& mmaps, vector<int>&
         tensor_set_zero (*tensor);
     }
     // copy info from mmaps to tmap
+    int numSeqs = lenSeqs.size();
     for (int n = 0; n < mmaps.size(); n ++) {
         for (auto it=mmap[n].begin(); it!=mmap[n].end(); it++) {
             string atom = it->first;
