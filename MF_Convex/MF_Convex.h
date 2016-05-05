@@ -114,6 +114,42 @@ void tensor_dump (Tensor& W) {
     }
 }
 */
+void dump (Matrix& source, string name) {
+    int dim_x = source.size();
+    cout << "===> dumping Matrix " <<  name  << ":" << endl;
+    for (int i = 0; i < dim_x; i ++) {
+        int dim_y = source[i].size();
+        for (int j = 0; j < dim_y; j ++) 
+            cout << " " << source[i][j];
+        cout << endl;
+    }
+}
+void dump (Tensor& source, string name) {
+    int dim_x = source.size();
+    cout << "===> dumping Tensor " <<  name  << ":" << endl;
+    for (int i = 0; i < dim_x; i ++) {
+        cout << "n = " << i << endl;
+        int dim_y = source[i].size();
+        for (int j = 0; j < dim_y; j ++) {
+            int dim_z = source[i][j].size();
+            for (int k = 0; k < dim_z; k ++) 
+                cout << " " << source[i][j][k];
+            cout << endl;
+        }
+    }
+}
+void dump (MatrixMap& source, string name) {
+    cout << "=====> dumping MatrixMap " <<  name  << ":" << endl;
+    for (auto it = source.begin(); it != source.end(); it ++) {
+        dump(*(it->second), it->first);
+    }
+}
+void dump (TensorMap& source, string name) {
+    cout << "=====> dumping TensorMap " <<  name  << ":" << endl;
+    for (auto it = source.begin(); it != source.end(); it ++) {
+        dump(*(it->second), it->first);
+    }
+}
 
 void sequence_dump (SequenceSet& allSeqs, int n) {
     char buffer [50];
