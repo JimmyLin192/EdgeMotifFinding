@@ -1,4 +1,4 @@
-#include "MSA_Convex.h"
+#include "MF_Convex.h"
 
 /* Debugging option */
 // #define RECURSION_TRACE
@@ -12,7 +12,7 @@ void usage () {
     cout << "\t-L Set the lambda, which is the weight for || W ||_p. (default 1.0)" << endl;
     cout << "\t-l Set the minimal length of atoms. (default 2)" << endl;
     cout << "\t-u Set the maximum length of atoms. (default 3)" << endl;
-    cout << "\t-m Set step size (\\mu) for updating the ADMM coordinate variables. (default 0.1)"<< endl;
+    cout << "\t-r Set step size (\\rho) for updating the ADMM coordinate variables. (default 0.1)"<< endl;
     cout << "\t-p Set maximum pertubation of penalty to break ties. (default 0)"<< endl;
     cout << "\t-s Set ADMM early stop toggle: early stop (on) if > 0. (default on)"<< endl;
     cout << "\t-r Set whether reinitialize W_1 and W_2 at each ADMM iteration. (default off)"<< endl;
@@ -29,12 +29,12 @@ void parse_cmd_line (int argn, char** argv) {
         if ( ++i >= argn ) usage();
         switch(argv[i-1][1]){
             case 'e': ADMM_EARLY_STOP_TOGGLE = (atoi(argv[i])>0); break;
-            case 'r': REINIT_W_ZERO_TOGGLE = (atoi(argv[i])>0); break;
             case 'L': LAMBDA = atof(argv[i]); break;
             case 'l': L_MIN = atof(argv[i]); break;
             case 'u': L_MAX = atoi(argv[i]); break;
-            case 'm': MU = atof(argv[i]); break;
+            case 'r': RHO = atof(argv[i]); break;
             case 'p': PERB_EPS = atof(argv[i]); break;
+            case 'i': REINIT_W_ZERO_TOGGLE = (atoi(argv[i])>0); break;
             default:
                       cerr << "unknown option: -" << argv[i-1][1] << endl;
                       usage();
@@ -50,7 +50,7 @@ bool double_dec_comp (double firstElem, double secondElem) {
 	return firstElem > secondElem;
 }
 
-void proximal (Tensor* wbar, double lambda) {
+void proximal (Tensor* wbar, double lambda, bool& all_zeros) {
     vector<double> alpha_vec;
     int num_alpha_elem = 0;
     int num_elem = 0;
@@ -110,11 +110,11 @@ void suppress (TensorMap& W1, TensorMap& W2, TensorMap& Y, double rho, vector<in
     for (auto it=Y.begin(); it!=Y.end(); it++) {
         string atom = it->first;
         Tensor* Yt  = it->second;
-        Tensor* W1t = (W1.find(atom) != NULL)? W1[atom] : NULL;
-        Tensor* W2t = (W2.find(atom) != NULL)? W2[atom] : NULL;
+        Tensor* W1t = (W1.find(atom) != W1.end())? W1[atom] : NULL;
+        Tensor* W2t = (W2.find(atom) != W2.end())? W2[atom] : NULL;
         // if W2 has no such atom, create one with all zeros
         if (W2t == NULL) {
-            W2t = new Tensor(numSeqs, NULL);
+            W2t = new Tensor();
             for (int n = 0; n < numSeqs; n ++) {
                 Matrix tmp (lenSeqs[n], vector<double>(L_MAX, 0.0));
                 W2t->push_back(tmp);
@@ -154,7 +154,8 @@ void align (TensorMap& W1, TensorMap& W2, TensorMap& Y, double rho, SequenceSet&
     while (fw_iter < MAX_1st_FW_ITER) {
         fw_iter ++;
         // 1. find alignment: brute-force search
-        S = viterbi(W1, allSeqs, lenSeqs);
+        TensorMap S;
+        viterbi(W1, allSeqs, lenSeqs);
 
         // 2. Exact Line search: determine the optimal step size \gamma
         double numerator = 0.0, denominator = 0.0;
@@ -184,7 +185,7 @@ void align (TensorMap& W1, TensorMap& W2, TensorMap& Y, double rho, SequenceSet&
             Tensor* W1t = W1[atom];
             Tensor* St  = S [atom];
             if (W1t == NULL) {
-                W1t = new Tensor(lenSeqs.size(), NULL);
+                W1t = new Tensor();
                 for (int n = 0; n < numSeqs; n ++) {
                     Matrix tmp (lenSeqs[n], vector<double>(L_MAX, 0.0));
                     W1t->push_back(tmp);
@@ -198,26 +199,27 @@ void align (TensorMap& W1, TensorMap& W2, TensorMap& Y, double rho, SequenceSet&
     }
 }
 
-void coordinate (TensorMap& Y, TensorMap& W1, TensorMap& W2, double mu, vector<int>& lenSeqs) {
+void coordinate (TensorMap& Y, TensorMap& W1, TensorMap& W2, double rho, vector<int>& lenSeqs) {
+    int numSeqs = lenSeqs.size();
     for (auto it=W1.begin(); it !=W1.end(); it++) {
         string atom = it->first;
         Tensor* W1t = W1[atom];
-        Tensor* W2t = (W2.find(atom)!=NULL) ? W2t[atom] : NULL;
-        Tensor* Yt  = (Y.find(atom)!=NULL)  ? Yt[atom]  : NULL;
+        Tensor* W2t = ( W2.find(atom) != W2.end() ) ? W2[atom] : NULL;
+        Tensor* Yt  = (  Y.find(atom) !=  Y.end() ) ?  Y[atom] : NULL;
         if (Yt == NULL) { 
-            Yt = new Tensor(lenSeqs.size(), NULL);
-            for (int seq_len : lenSeqs) {
-                Matrix tmp (seq_len, vector<double>(L_MAX, 0.0));
+            Yt = new Tensor();
+            for (int n = 0; n < numSeqs; n++) {
+                Matrix tmp (lenSeqs[n], vector<double>(L_MAX, 0.0));
                 Yt->push_back(tmp);
             }
             Y[atom] = Yt;
         } 
-        if (W2 == NULL) {
-            // axpy: Y += mu * W_1
-            tensor_axpy(Yt, mu, W1t);
+        if (W2t == NULL) {
+            // axpy: Y += rho * W_1
+            tensor_axpy(Yt, rho, W1t);
         } else {
-            // axpy: Y += mu * (W_1 - W_2)
-            tensor_diff_axpy(Yt, mu, W1t, W2t);
+            // axpy: Y += rho * (W_1 - W_2)
+            tensor_diff_axpy(Yt, rho, W1t, W2t);
         }
     }
 }
@@ -227,7 +229,6 @@ TensorMap CVX_ADMM_MF (SequenceSet& allSeqs, vector<int>& lenSeqs) {
     // 1. initialization
     int numSeqs = allSeqs.size();
     TensorMap W_1, W_2, Y; 
-   // set_C (C, allSeqs);
 
     // 2. ADMM iteration
     int iter = 0;
@@ -238,16 +239,15 @@ TensorMap CVX_ADMM_MF (SequenceSet& allSeqs, vector<int>& lenSeqs) {
         // 2a. Subprogram: FrankWolf Algorithm, row separable
         vector<MatrixMap> sub_W_1 (numSeqs); 
         for (int n = 0; n < numSeqs; n ++) {
-            segregate(W_1, sub_W_1, n);
             align (W_1, W_2, Y, rho, allSeqs, lenSeqs);
         }
-        combine();
+        // combine();
 
         // 2b. Subprogram: proximal method, column separable
         suppress (W_1, W_2, Y, rho, lenSeqs, lambda);
 
-        // 2d. update Y: Y += mu * (W_1 - W_2)
-        coordinate (Y, W_1, W_2, mu, lenSeqs);
+        // 2d. update Y: Y += rho * (W_1 - W_2)
+        coordinate (Y, W_1, W_2, rho, lenSeqs);
 
         // 2e. print out tracking info
         /*
@@ -266,12 +266,14 @@ TensorMap CVX_ADMM_MF (SequenceSet& allSeqs, vector<int>& lenSeqs) {
             */
 
         // 2f. stopping conditions
+        /*
         if (ADMM_EARLY_STOP_TOGGLE and iter > MIN_ADMM_ITER)
             if ( W1mW2 < EPS_Wdiff ) {
                 cerr << "CoZ Converges. ADMM early stop!" << endl;
                 break;
             }
         prev_CoZ = CoZ;
+        */
         iter ++;
     }
     /*

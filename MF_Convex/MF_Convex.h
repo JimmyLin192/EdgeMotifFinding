@@ -8,8 +8,10 @@ using namespace std;
 #include <vector>
 #include <unordered_map>
 #include <set>
+#include <map>
 #include <sstream> 
 #include <cmath>
+#include <cassert>
 
 //#define CUBE_SMITH_WATERMAN_DEBUG
 //#define PARRALLEL_COMPUTING
@@ -50,18 +52,16 @@ const double HIGH_COST = 999999.0;
 const double NO_COST = 0;
 
 /* Data Structure */
-/*{{{*/
 class Cell {
     public:
         double score;   
-        Action action;
         int dim;   
         vector<int> location; 
         char acidA, acidB;
         int ans_idx;
         Cell (int dim) {
             this->score = 0;
-            this->action = UNDEFINED; this->dim = dim; 
+            this->dim = dim; 
             for (int i = 0; i < dim; i ++) location.push_back(-1);
             this->acidA = '?';
             this->acidB = '?';
@@ -77,7 +77,6 @@ class Cell {
                 if (i < this->dim - 1) s << ",";
             }
             s << "), ";
-            s << action2str(this->action) << ", ";
             s << this->acidA << ", " << this->acidB;
             s << ", " << this->score << ") ";
             return s.str();
@@ -91,60 +90,10 @@ typedef vector<Cell> Trace;  // for viterbi
 typedef vector<Trace > Plane; // 2-d Cell Plane, for viterbi
 typedef vector<Plane > Cube;  // 3-d Cell Cube
 
-typedef vector<vector<double> > Matrix; // 2-d double matrix
+typedef vector<vector<double>> Matrix; // 2-d double matrix
 typedef vector<Matrix> Tensor;  // 3-d double tensor
-typedef map<string, *Matrix> MatrixMap; // 3-d double Tensor
-typedef map<string, *Tensor> TensorMap; // 4-d double Tensor
-/*}}}*/
-
-// C is the tensor specifying the penalties 
-void set_C (Tensor5D& C, SequenceSet& allSeqs) {
-/*{{{*/
-    int T0 = C.size();
-    int T2 = C[0][0].size();
-    int T3 = NUM_DNA_TYPE;
-    int T4 = NUM_MOVEMENT;
-    for (int n = 0; n < T0; n ++) {
-        int T1 = C[n].size();
-        for (int i = 0; i < T1; i ++) {
-            for (int j = 0; j < T2; j ++) {
-                for (int k = 0; k < T3; k ++) {
-                    for (int m = 0; m < T4; m ++) {
-                        if (m == INS_BASE_IDX) {
-                            if (allSeqs[n][i] == '#') {
-                                C[n][i][j][k][m] = HIGH_COST;
-                                continue;
-                            }
-                            C[n][i][j][k][m] = C_I;
-                        }
-                        // DELETION PENALTIES
-                        else if (m == DELETION_START) // disallow delete *
-                            C[n][i][j][k][m] = HIGH_COST;
-                        else if (m == DELETION_END) // disallow delete #
-                            C[n][i][j][k][m] = HIGH_COST;
-                        else if (DEL_BASE_IDX <= m and m < MTH_BASE_IDX) {
-                            C[n][i][j][k][m] = C_D;
-                        }
-                        // MATCH PENALTIES
-                        else if (m == MATCH_START)
-                            C[n][i][j][k][m] = (allSeqs[n][i] == '*')?NO_COST:HIGH_COST; // disallow mismatch *
-                        else if (m == MATCH_END) 
-                            C[n][i][j][k][m] = (allSeqs[n][i] == '#')?NO_COST:HIGH_COST; // disallow mismatch #
-                        else if (MTH_BASE_IDX <= m) {
-                            if (allSeqs[n][i] == '#' and m != MATCH_END) {
-                                C[n][i][j][k][m] = HIGH_COST;
-                                continue;
-                            }
-                            C[n][i][j][k][m] = (dna2T3idx(allSeqs[n][i]) == m-MTH_BASE_IDX)?C_M:C_MM;
-                        }
-                        C[n][i][j][k][m] += PERB_EPS * ((double) rand())/RAND_MAX;
-                    }
-                }
-            }
-        }
-    }
-/*}}}*/
-}
+typedef map<string, Matrix*> MatrixMap; // 3-d double Tensor
+typedef map<string, Tensor*> TensorMap; // 4-d double Tensor
 
 /* Tensors auxiliary function */
 /*
@@ -206,7 +155,7 @@ void tensor_axpy (Tensor* sink, double ratio, Tensor* source) {
     }
 }
 // sink += mu * (s1 - s2)
-void tensor_axpy (Tensor* sink, double ratio, Tensor* s1, Tensor* s2) {
+void tensor_diff_axpy (Tensor* sink, double ratio, Tensor* s1, Tensor* s2) {
     for (int i = 0; i < s1->size(); i ++) { // num_seqs
         assert (sink->size() == s1->size() && "sink == s1->size() fails.");
         assert (sink->size() == s2->size() && "sink == s2->size() fails.");
